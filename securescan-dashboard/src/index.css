@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  ::selection {
+    @apply bg-accent/30 text-ink;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-base;
+  }
+}
+
+/* Subtle scan-line texture for the header. */
+.scanline-texture {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(53, 209, 166, 0.05) 0px,
+    rgba(53, 209, 166, 0.05) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}

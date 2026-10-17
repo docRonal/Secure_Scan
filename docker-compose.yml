@@ -1,0 +1,67 @@
+# Starts the backend, ZAP, and dashboard with one command.
+#
+#   docker compose up --build
+#
+# Backend:  http://localhost:8000/docs
+# Dashboard: http://localhost:8081
+# ZAP API:  http://localhost:8080
+#
+# Active scans and demo-account seeding are disabled by default.
+# Enable them explicitly in the root .env file when needed.
+
+services:
+  zap:
+    image: zaproxy/zap-stable
+    command: >
+      zap.sh -daemon -host 0.0.0.0 -port 8080
+      -config api.addrs.addr.name=.*
+      -config api.addrs.addr.regex=true
+      -config api.key=${ZAP_API_KEY:-}
+    user: zap
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+  backend:
+    build: ./securescan-mvp
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
+      - PUBLIC_REGISTRATION_ENABLED=${PUBLIC_REGISTRATION_ENABLED:-false}
+      - ZAP_ENABLED=${ZAP_ENABLED:-false}
+      - ZAP_API_URL=http://zap:8080
+      - ZAP_API_KEY=${ZAP_API_KEY:-}
+      - ZAP_SCAN_POLICY=${ZAP_SCAN_POLICY:-}
+      - ZAP_ATTACK_STRENGTH=${ZAP_ATTACK_STRENGTH:-High}
+      - ZAP_ALERT_THRESHOLD=${ZAP_ALERT_THRESHOLD:-Low}
+      - ZAP_ENABLE_ALL_SCANNERS=${ZAP_ENABLE_ALL_SCANNERS:-true}
+      - ZAP_AJAX_SPIDER_ENABLED=${ZAP_AJAX_SPIDER_ENABLED:-true}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in the root .env file}
+      - SEED_ADMIN_ENABLED=${SEED_ADMIN_ENABLED:-false}
+      - SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-local-admin@example.invalid}
+      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-}
+      - SEED_DEMO_DATA_ENABLED=${SEED_DEMO_DATA_ENABLED:-false}
+      - DATABASE_URL=sqlite:////data/securescan.db
+    volumes:
+      - securescan-data:/data
+    depends_on:
+      - zap
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./securescan-dashboard
+      args:
+        # Browser connects directly to the backend through the host port.
+        VITE_API_URL: http://localhost:8000
+        VITE_AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
+        VITE_PUBLIC_REGISTRATION_ENABLED: ${PUBLIC_REGISTRATION_ENABLED:-false}
+    ports:
+      - "127.0.0.1:8081:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  securescan-data:

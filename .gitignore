@@ -1,0 +1,51 @@
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Local databases and database sidecars
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Private keys and local secret material
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+**/secrets/
+.secrets/
+**/.secrets/
+
+# Python environments, caches, and bytecode
+.venv/
+**/.venv/
+venv/
+**/venv/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+**/.pytest_cache/
+*.py[cod]
+
+# Frontend dependencies and build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+
+# Logs and test coverage output
+*.log
+.coverage
+htmlcov/
+
+# Local editor and office lock files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.~lock.*#

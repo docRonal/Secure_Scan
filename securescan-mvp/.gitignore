@@ -1,0 +1,20 @@
+# Секреты — никогда не коммитить (ZAP_API_KEY и т.п.)
+.env
+
+# Виртуальное окружение
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Локальная БД прототипа (SQLite)
+*.db
+*.db-journal
+
+# IDE
+.vscode/
+.idea/
