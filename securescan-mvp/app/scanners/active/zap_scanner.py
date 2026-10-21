@@ -226,17 +226,23 @@ class ZAPActiveScanner(ActiveScannerPlugin):
             except ZAPError:
                 logger.warning("Не удалось сразу остановить ZAP для %s", domain)
 
-            # Preserve findings collected before cancellation or timeout.
-            partial_findings: list[ScanFinding] = []
-            try:
-                raw_alerts = client.get_alerts(target_url, timeout=3.0)
-                partial_findings = [self._to_finding(a) for a in raw_alerts]
-            except ZAPError:
-                logger.warning(
-                    "ZAP не успел вернуть частичные находки после отмены для %s; "
-                    "скан помечается как отменённый",
-                    domain,
-                )
+            if ascan_id is not None:
+                try:
+                    client.wait_until_complete(
+                        client.ascan_status,
+                        ascan_id,
+                        poll_interval=1,
+                        max_wait=20,
+                    )
+                except (ZAPTimeout, ZAPError) as stop_wait_error:
+                    logger.warning("ZAP scan stop is still pending for %s", domain)
+                    logger.debug("ZAP stop wait detail: %s", stop_wait_error)
+
+            # Keep complete pages even if ZAP times out while serving a later page.
+            raw_alerts = self._get_partial_alerts(client, target_url)
+            partial_findings = [self._to_finding(alert) for alert in raw_alerts]
+            partial_findings.extend(self._add_contextual_findings(target_url, raw_alerts))
+            logger.info("Collected %d partial ZAP alerts for %s", len(raw_alerts), domain)
 
             if isinstance(exc, ZAPScanCancelled):
                 raise ScanCancelled(
@@ -258,6 +264,36 @@ class ZAPActiveScanner(ActiveScannerPlugin):
         findings = [self._to_finding(a) for a in raw_alerts]
         findings.extend(self._add_contextual_findings(target_url, raw_alerts))
         return findings
+
+    @staticmethod
+    def _get_partial_alerts(
+        client: ZAPClient,
+        target_url: str,
+        *,
+        page_size: int = 100,
+        max_pages: int = 10,
+    ) -> list[dict]:
+        alerts: list[dict] = []
+        for page in range(max_pages):
+            try:
+                page_alerts = client.get_alerts(
+                    target_url,
+                    timeout=10.0,
+                    start=page * page_size,
+                    count=page_size,
+                )
+            except ZAPError as exc:
+                logger.warning(
+                    "ZAP alert retrieval stopped after %d partial alerts: %s",
+                    len(alerts),
+                    exc,
+                )
+                break
+
+            alerts.extend(page_alerts)
+            if len(page_alerts) < page_size:
+                break
+        return alerts
 
     @staticmethod
     def _add_contextual_findings(target_url: str, raw_alerts: list[dict]) -> list[ScanFinding]:

@@ -142,10 +142,18 @@ class ZAPClient:
 
     # ---------------------------------------------------------------- alerts
 
-    def get_alerts(self, base_url: str, timeout: float | None = None) -> list[dict]:
+    def get_alerts(
+        self,
+        base_url: str,
+        timeout: float | None = None,
+        start: int = 0,
+        count: int = 100,
+    ) -> list[dict]:
         """Fetch ZAP alerts for the requested base URL."""
         data = self._get(
-            "/JSON/core/view/alerts/", {"baseurl": base_url}, timeout=timeout
+            "/JSON/core/view/alerts/",
+            {"baseurl": base_url, "start": start, "count": count},
+            timeout=timeout,
         )
         return data.get("alerts", [])
 

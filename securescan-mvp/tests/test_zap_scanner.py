@@ -1,5 +1,5 @@
 from app.config import settings
-from app.scanners.active.zap_client import ZAPClient
+from app.scanners.active.zap_client import ZAPClient, ZAPError
 from app.scanners.active.zap_scanner import ZAPActiveScanner
 
 
@@ -103,3 +103,41 @@ def test_zap_finding_includes_confidence_and_instance_evidence():
     assert "GET https://example.com/search" in finding.evidence
     assert "param=q" in finding.evidence
     assert "evidence=<test-marker>" in finding.evidence
+
+
+def test_get_alerts_passes_pagination_parameters():
+    calls = []
+    client = ZAPClient("http://127.0.0.1:8080", "secret")
+
+    def fake_get(path, params=None, **kwargs):
+        calls.append((path, params, kwargs))
+        return {"alerts": [{"alert": "first page"}]}
+
+    client._get = fake_get
+
+    alerts = client.get_alerts("https://example.com/", timeout=20, start=100, count=100)
+
+    assert alerts == [{"alert": "first page"}]
+    assert calls == [(
+        "/JSON/core/view/alerts/",
+        {"baseurl": "https://example.com/", "start": 100, "count": 100},
+        {"timeout": 20},
+    )]
+
+
+def test_partial_alert_fetch_keeps_pages_received_before_timeout():
+    client = ZAPClient("http://127.0.0.1:8080", "secret")
+    first_page = [{"alert": "SQL Injection", "risk": "High"}] * 2
+
+    def fake_get(path, params=None, **kwargs):
+        if params["start"] == 0:
+            return {"alerts": first_page}
+        raise ZAPError("ZAP timed out")
+
+    client._get = fake_get
+
+    alerts = ZAPActiveScanner._get_partial_alerts(
+        client, "https://example.com/", page_size=2, max_pages=3
+    )
+
+    assert alerts == first_page
