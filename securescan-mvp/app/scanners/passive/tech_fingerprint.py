@@ -19,8 +19,8 @@ SIGNATURES = [
     },
     {
         "name": "PHP",
-        "pattern": re.compile(r'PHP/([\d.]+)', re.I),
-        "source": "header:X-Powered-By",
+        "pattern": re.compile(r"\bPHP\s*/?\s*(\d+\.\d+(?:\.\d+)?)\b", re.I),
+        "source": "header:X-Powered-By,Server",
     },
     {
         "name": "nginx",
@@ -55,9 +55,11 @@ class TechFingerprintChecker(BaseScanner):
 
         detected: list[ScanFinding] = []
         for sig in SIGNATURES:
-            haystack = (
-                resp.text if sig["source"] == "body" else resp.headers.get(sig["source"].split(":")[1], "")
-            )
+            if sig["source"] == "body":
+                haystack = resp.text
+            else:
+                header_names = sig["source"].split(":", 1)[1].split(",")
+                haystack = " ".join(resp.headers.get(name, "") for name in header_names)
             match = sig["pattern"].search(haystack or "")
             if match:
                 version = match.group(1) if match.groups() else "unknown"

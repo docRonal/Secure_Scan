@@ -11,6 +11,14 @@ from app.scanners.passive.email_security_check import EmailSecurityChecker
 from app.scanners.passive.html_content_check import HTMLContentChecker
 from app.scanners.passive.robots_disclosure_check import RobotsDisclosureChecker
 from app.scanners.passive.subdomain_takeover_check import SubdomainTakeoverChecker
+from app.scanners.passive.tech_fingerprint import TechFingerprintChecker
+from app.scanners.passive.outdated_components import OutdatedComponentsChecker
+from app.scanners.base import ScanFinding
+from app.vulnerability_db.cve_client import (
+    common_stack_vuln_matches,
+    php_common_vuln_matches,
+    php_oom_cve_matches,
+)
 
 
 def make_cookie(name: str, secure: bool = False, httponly: bool = False, samesite: str | None = None) -> Cookie:
@@ -492,3 +500,88 @@ def test_subdomain_takeover_claimed_resource_is_informational():
     assert len(findings) == 1
     assert findings[0].severity == "info"
     assert "похоже занят" in findings[0].title
+
+
+def test_php_oom_cve_boundaries():
+    assert {match.identifier for match in php_oom_cve_matches("8.2.34")} == {
+        "CVE-2026-109618",
+        "CVE-2026-109619",
+    }
+    assert {match.identifier for match in php_oom_cve_matches("8.3.35")} == {
+        "CVE-2026-109618",
+        "CVE-2026-109619",
+    }
+    assert php_oom_cve_matches("8.2.35") == []
+    assert php_oom_cve_matches("8.3.36") == []
+    assert [m.identifier for m in php_oom_cve_matches("7.2.34")] == [
+        "CVE-2026-109619"
+    ]
+
+
+def test_php_common_advisories_boundaries():
+    assert {match.identifier for match in php_common_vuln_matches("8.1.28")} == {
+        "CVE-2024-4577",
+    }
+    assert php_common_vuln_matches("8.1.29") == []
+    assert {match.identifier for match in php_common_vuln_matches("8.2.21")} == {
+        "CVE-2024-4577",
+    }
+    assert php_common_vuln_matches("8.2.22") == []
+    assert {match.identifier for match in php_common_vuln_matches("8.1.17")} == {
+        "CVE-2024-4577",
+        "CVE-2023-0567",
+    }
+    assert {match.identifier for match in php_common_vuln_matches("8.2.16")} == {
+        "CVE-2024-4577",
+        "CVE-2023-0567",
+    }
+
+
+def test_common_stack_advisories_boundaries():
+    assert {match.identifier for match in common_stack_vuln_matches("nginx", "1.24.0")} == {
+        "CVE-2023-44487",
+    }
+    assert common_stack_vuln_matches("nginx", "1.25.1") == []
+    assert {match.identifier for match in common_stack_vuln_matches("apache", "2.4.60")} == {
+        "CVE-2024-38475",
+    }
+    assert common_stack_vuln_matches("apache", "2.4.61") == []
+    assert {match.identifier for match in common_stack_vuln_matches("openssl", "3.0.11")} == {
+        "CVE-2023-3446",
+    }
+    assert common_stack_vuln_matches("openssl", "3.0.12") == []
+
+
+def test_outdated_components_reports_php_oom_cves(monkeypatch):
+    monkeypatch.setattr(
+        TechFingerprintChecker,
+        "run",
+        lambda self, domain: [
+            ScanFinding(
+                checker="tech_fingerprint",
+                title="Detected PHP",
+                severity="info",
+                description="PHP version exposed by response headers.",
+                evidence="PHP=8.2.34",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.scanners.passive.outdated_components.query_nvd",
+        lambda product, version: [],
+    )
+
+    findings = OutdatedComponentsChecker().run("example.com")
+
+    assert {finding.evidence for finding in findings if finding.evidence} == {
+        "CVE-2026-109618",
+        "CVE-2026-109619",
+    }
+
+
+def test_php_fingerprint_detects_version_in_server_header():
+    response = Mock(text="", headers={"Server": "Apache PHP/8.4.26"})
+    with patch("requests.get", return_value=response):
+        findings = TechFingerprintChecker().run("example.com")
+
+    assert any(f.evidence == "PHP=8.4.26" for f in findings)

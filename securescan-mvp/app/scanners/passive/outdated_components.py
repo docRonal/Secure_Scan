@@ -1,7 +1,13 @@
 """Match detected technology versions against known vulnerability data."""
 from app.scanners.base import BaseScanner, ScanFinding
 from app.scanners.passive.tech_fingerprint import TechFingerprintChecker
-from app.vulnerability_db.cve_client import query_nvd, offline_lookup
+from app.vulnerability_db.cve_client import (
+    common_stack_vuln_matches,
+    offline_lookup,
+    php_common_vuln_matches,
+    php_oom_cve_matches,
+    query_nvd,
+)
 
 
 class OutdatedComponentsChecker(BaseScanner):
@@ -18,7 +24,17 @@ class OutdatedComponentsChecker(BaseScanner):
             if version == "unknown":
                 continue
 
-            matches = query_nvd(product, version)
+            if product.lower() == "php":
+                matches = php_oom_cve_matches(version) + php_common_vuln_matches(version)
+            else:
+                matches = common_stack_vuln_matches(product, version)
+
+            known_identifiers = {match.identifier for match in matches}
+            matches.extend(
+                match
+                for match in query_nvd(product, version)
+                if match.identifier not in known_identifiers
+            )
             if not matches:
                 matches = offline_lookup(product)
 
