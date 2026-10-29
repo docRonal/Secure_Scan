@@ -109,7 +109,14 @@ export default function LoginScreen({ onAuthenticated }: Props) {
             {mode === "login" ? tr("signIn") : tr("createAccount")}
           </button>
         </form>
-
+        <a
+          href="https://github.com/docRonal/Secure_Scan"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 block text-center text-xs text-muted hover:text-ink"
+        >
+          {tr("sourceCode")}
+        </a>
       </div>
     </div>
   );

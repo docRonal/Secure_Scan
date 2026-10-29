@@ -96,6 +96,7 @@ const translations = {
     severityHigh: "Высокий",
     severityCritical: "Критический",
     language: "Язык интерфейса",
+    sourceCode: "Исходный код (AGPLv3)",
   },
   en: {
     loading: "Loading…",
@@ -192,6 +193,7 @@ const translations = {
     severityHigh: "High",
     severityCritical: "Critical",
     language: "Interface language",
+    sourceCode: "Source code (AGPLv3)",
   },
 } as const;
 

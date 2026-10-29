@@ -131,6 +131,15 @@ export default function Sidebar({
           {error && <p className="mt-2 text-xs text-sev-critical">{error}</p>}
         </form>
 
+        <a
+          href="https://github.com/docRonal/Secure_Scan"
+          target="_blank"
+          rel="noreferrer"
+          className="border-t border-line px-3 py-2 text-center text-xs text-muted hover:text-ink"
+        >
+          {tr("sourceCode")}
+        </a>
+
         <div className="flex items-center justify-between gap-2 border-t border-line px-3 py-2.5">
           <span className="truncate text-xs text-muted" title={user.email}>
             {user.email}
